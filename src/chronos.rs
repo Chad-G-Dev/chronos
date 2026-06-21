@@ -146,6 +146,18 @@ impl Chronos {
                     Err(error) => message = error.message,
                 }
             },
+            "log" => {
+                // verify the command
+                if args.len() != 3 {
+                    return Err(ChronosError::new(ErrorTypes::InvalidCommand, invalid_message.to_string()));
+                }
+
+                // run the command
+                match self.log(&args[2]).await {
+                    Ok(execution_message) => message = execution_message,
+                    Err(error) => message = error.message,
+                }
+            },
             _ => return Err(ChronosError::new(ErrorTypes::CommandNotFound, format!("Command {} not found", args[1]))),
         }
 
@@ -272,12 +284,98 @@ impl Chronos {
             Err(error) => Err(ChronosError::new(ErrorTypes::DatabaseError, format!("Failed to create project: {}", error))),
         }
     }
-}
 
-/*
-// get the time stamp first to get the earliest time available
-        let timestamp = match std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH) {
-            Ok(duration) => duration.as_secs() as i64,
-            Err(error) => return Err(Error::new(ErrorTypes::NoArguments, format!("Can't get system time: {}", error)),
+    // function to get the time as a formatted string
+    pub async fn log(&self, project: &String) -> Result<String, ChronosError> {
+        // get all the events
+        let rows = match query(AssertSqlSafe(format!("SELECT * FROM {} ORDER BY timestamp ASC", project)))
+            .fetch_all(&self.pool)
+            .await {
+            Ok(events) => events,
+            Err(error) => return Err(ChronosError::new(ErrorTypes::DatabaseError, format!("Failed to query project: {}", error))),
         };
-*/
+
+        // extract the timestamp
+        let events = rows
+            .iter()
+            .map(|row| row.get::<i64, _>("timestamp"))
+            .collect::<Vec<i64>>();
+
+        // prepare variables to calculate time
+        let mut toggled = false;
+        let mut last_start: i64 = 0;
+        let mut time: i64 = 0;
+
+        // calculate time
+        for timestamp in events {
+            println!("event at {}", timestamp);
+            if !toggled {
+                last_start = timestamp;
+                toggled = true;
+            } else {
+                time += timestamp - last_start;
+                toggled = false;
+            }
+        }
+
+        Ok(format!("You have worked on {} for {}", project, Self::convert_timestamp(time)))
+    }
+
+    // function that formats a timestamp
+    fn convert_timestamp(mut timestamp: i64) -> String {
+        // get individual units of time
+        let seconds = timestamp % 60;
+        println!("{}", seconds);
+        timestamp /= 60;
+        let minutes = timestamp % 60;
+        timestamp /= 60;
+        let hours = timestamp % 24;
+        timestamp /= 24;
+        let days = timestamp % 365;
+        timestamp /= 365;
+
+        // create the variable to store the output
+        let mut output = String::new();
+
+        // generate the output string
+        if timestamp > 1 {
+            output.push_str(format!("{} years, ", timestamp).as_str());
+        }  else if timestamp > 0 {
+            output.push_str("1 year, ");
+        }
+
+        if days > 1 {
+            output.push_str(format!("{} days, ", days).as_str());
+        } else if days > 0 {
+            output.push_str("1 day, ");
+        } else if timestamp > 0 {
+            output.push_str("0 days, ");
+        }
+
+        if hours > 1 {
+            output.push_str(format!("{} hours, ", hours).as_str());
+        } else if days > 0 {
+            output.push_str("1 hour, ");
+        } else if timestamp > 0 || days > 0 {
+            output.push_str("0 hours, ");
+        }
+
+        if minutes > 1 {
+            output.push_str(format!("{} minutes, ", minutes).as_str());
+        } else if days > 0 {
+            output.push_str("1 minute, ");
+        } else if timestamp > 0 || days > 0 || hours > 0{
+            output.push_str("0 minutes, ");
+        }
+
+        if seconds > 1 {
+            output.push_str(format!("{} seconds", seconds).as_str());
+        } else if days > 0 {
+            output.push_str("1 seconds");
+        } else {
+            output.push_str("0 seconds");
+        }
+
+        output
+    }
+}
