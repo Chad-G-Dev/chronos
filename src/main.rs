@@ -10,7 +10,7 @@ use chronos::Chronos;
 #[tokio::main]
 async fn main() {
     // create chronos
-    let chronos = match Chronos::new().await {
+    let mut chronos = match Chronos::new().await {
         Ok(chronos) => chronos,
         Err(error) => panic!("{}", error.message),
     };

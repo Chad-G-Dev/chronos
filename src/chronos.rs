@@ -44,6 +44,7 @@ impl ChronosError {
 /// ================================================================================================
 pub struct Chronos {
     pub pool: Pool<Sqlite>,
+    pub projects: Vec<String>,
 }
 
 impl Chronos {
@@ -53,13 +54,17 @@ impl Chronos {
             Err(error) => return Err(error),
         };
 
+        // get the projects list
+        let projects = Self::list_from_pool(&pool).await;
+
         // return a new Chronos object
         Ok(Self {
             pool,
+            projects,
         })
     }
 
-    pub async fn validate_and_run(&self, args: Vec<String>) -> Result<String, ChronosError>{
+    pub async fn validate_and_run(&mut self, args: Vec<String>) -> Result<String, ChronosError>{
         // make sure an actual command was given
         if args.len() < 2 {
             return Err(ChronosError::new(ErrorTypes::NoArguments, "No arguments provided enter 'chronos help to see available commands'".to_string()));
@@ -106,15 +111,41 @@ impl Chronos {
                 }
             },
             "create" => {
+                // make sure the right amount of arguments are there
                 if args.len() != 3 {
                     return Err(ChronosError::new(ErrorTypes::InvalidCommand, invalid_message.to_string()));
                 }
 
+                // execute the command
                 match self.create(&args[2]).await {
                     Ok(execution_message) => message = execution_message,
                     Err(error) => message = error.message,
                 }
-            }
+            },
+            "delete" => {
+                // verify the command
+                if args.len() != 3 {
+                    return Err(ChronosError::new(ErrorTypes::InvalidCommand, invalid_message.to_string()));
+                }
+
+                // run the command
+                match self.delete(&args[2]).await {
+                    Ok(execution_message) => message = execution_message,
+                    Err(error) => message = error.message,
+                }
+            },
+            "toggle" => {
+                // verify the command
+                if args.len() != 3 {
+                    return Err(ChronosError::new(ErrorTypes::InvalidCommand, invalid_message.to_string()));
+                }
+
+                // run the command
+                match self.start_stop(&args[2]).await {
+                    Ok(execution_message) => message = execution_message,
+                    Err(error) => message = error.message,
+                }
+            },
             _ => return Err(ChronosError::new(ErrorTypes::CommandNotFound, format!("Command {} not found", args[1]))),
         }
 
@@ -172,11 +203,15 @@ impl Chronos {
 
     // return a vec of all projects
     pub async fn list(&self) -> Vec<String> {
+        self.projects.clone()
+    }
+
+    async fn list_from_pool(pool: &Pool<Sqlite>) -> Vec<String> {
         // get all the table names
         let rows = sqlx::query(
             "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY rowid DESC"
         )
-            .fetch_all(&self.pool)
+            .fetch_all(pool)
             .await
             .unwrap_or_else(|_| Vec::new());
 
@@ -188,17 +223,52 @@ impl Chronos {
     }
 
     // function to create new project (simply a table in the sqlite database)
-    pub async fn create(&self, project_name: &str) -> Result<String, ChronosError> {
+    pub async fn create(&mut self, project_name: &str) -> Result<String, ChronosError> {
         // First make sure that the name isn't already taken
-        if self.list().await.contains(&project_name.to_string()) {
+        if self.projects.contains(&project_name.to_string()) {
             return Err(ChronosError::new(ErrorTypes::InvalidCommand, format!("Project {} already exists", project_name)));
         }
 
         // Create the table with the project's name
-        match query(AssertSqlSafe(format!("CREATE TABLE {} (timestamp INTEGER NOT NULL UNIQUE, event TEXT NOT NULL)", project_name)))
+        match query(AssertSqlSafe(format!("CREATE TABLE {} (timestamp INTEGER NOT NULL UNIQUE)", project_name)))
             .execute(&self.pool)
             .await {
-            Ok(_) => Ok(format!("Project {} created", project_name)),
+            Ok(_) => {
+                self.projects.append(&mut vec![project_name.to_string()]);
+                Ok(format!("Project {} created", project_name))
+            },
+            Err(error) => Err(ChronosError::new(ErrorTypes::DatabaseError, format!("Failed to create project: {}", error))),
+        }
+    }
+
+    pub async fn delete(&self, project_name: &str) -> Result<String, ChronosError> {
+        // make sure the project we're trying to delete exists
+        if !self.projects.contains(&project_name.to_string()) {
+            return Err(ChronosError::new(ErrorTypes::InvalidCommand, format!("Project {} not found", project_name)));
+        }
+
+        // Drop the table (the project)
+        match query(AssertSqlSafe(format!("DROP TABLE {}", project_name)))
+        .execute(&self.pool)
+        .await {
+            Ok(_) => Ok(format!("Project {} deleted", project_name)),
+            Err(error) => Err(ChronosError::new(ErrorTypes::DatabaseError, format!("Failed to delete project: {}", error))),
+        }
+    }
+
+    pub async fn start_stop(&self, project: &String) -> Result<String, ChronosError> {
+        // get the time stamp
+        let timestamp = match std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH) {
+            Ok(duration) => duration.as_secs() as i64,
+            Err(error) => return Err(ChronosError::new(ErrorTypes::NoArguments, format!("Can't get system time: {}", error))),
+        };
+
+        // add it to the project's table
+        match query(AssertSqlSafe(format!("INSERT INTO {} (timestamp) VALUES (?)", project)))
+            .bind(timestamp)
+            .execute(&self.pool)
+            .await {
+            Ok(_) => Ok(format!("Event added to project: {}", project)),
             Err(error) => Err(ChronosError::new(ErrorTypes::DatabaseError, format!("Failed to create project: {}", error))),
         }
     }
