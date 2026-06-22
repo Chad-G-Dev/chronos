@@ -3,8 +3,7 @@ use std::fmt::Error;
 ///
 /// Chronos is a struct that tracks time by storing events in a sqlite database.
 ///
-/// You can simply create one and then validate_and_run a command (e.g. For a cli app)
-/// Or you can execute actions directly from predefined functions.
+/// You can manage trackers and add events or provide it a command
 
 /// ================================================================================================
 /// IMPORTS
@@ -16,6 +15,7 @@ use sqlx::{AssertSqlSafe, migrate::MigrateDatabase, query, FromRow, Pool, Row, S
 // CONSTANTS
 // =================================================================================================
 const DATABASE_URL: &str = "sqlite://sqlite.db";
+const VERSION: &str = "1.0.0";
 
 pub enum ErrorTypes {
     NoArguments,
@@ -44,7 +44,7 @@ impl ChronosError {
 /// ================================================================================================
 pub struct Chronos {
     pub pool: Pool<Sqlite>,
-    pub projects: Vec<String>,
+    pub trackers: Vec<String>,
 }
 
 impl Chronos {
@@ -54,13 +54,13 @@ impl Chronos {
             Err(error) => return Err(error),
         };
 
-        // get the projects list
-        let projects = Self::list_from_pool(&pool).await;
+        // get the trackers list
+        let trackers = Self::list_from_pool(&pool).await;
 
         // return a new Chronos object
         Ok(Self {
             pool,
-            projects,
+            trackers,
         })
     }
 
@@ -76,6 +76,16 @@ impl Chronos {
 
         // execute based on the command
         match &args[1][..] {
+            "--version" => {
+                // verify that no extra arguments where given
+                if args.len() > 2 {
+                    return Err(ChronosError::new(ErrorTypes::InvalidCommand, invalid_message.to_string()));
+                }
+
+                // return the help message
+                message = VERSION.to_string();
+            }
+
             "help" => {
                 // verify that no extra arguments where given
                 if args.len() > 2 {
@@ -91,23 +101,23 @@ impl Chronos {
                     return Err(ChronosError::new(ErrorTypes::InvalidCommand, invalid_message.to_string()));
                 }
 
-                // get the projects list
-                let projects = self.list().await;
+                // get the trackers list
+                let trackers = self.list().await;
 
                 // create the output message
-                if projects.len() == 1 {
-                    message = format!("found 1 project: {}\n", projects[0]);
+                if trackers.len() == 1 {
+                    message = format!("found 1 tracker: {}\n0\n", trackers[0]);
                 } else {
-                    // Create the output string for the projects list
+                    // Create the output string for the  trackers list
                     let mut output_string: String = String::new();
 
-                    // generate the project's list output
-                    for index in 0..projects.len() {
-                        output_string.push_str(&format!("\n{}\t{}", projects.len() - 1 - index, projects[index]))
+                    // generate the tracker's list output
+                    for index in 0..trackers.len() {
+                        output_string.push_str(&format!("\n{}\t{}", trackers.len() - 1 - index, trackers[index]))
                     }
 
                     // return the final message
-                    message = format!("found {} projects: {}",projects.len() , output_string);
+                    message = format!("found {} trackers: {}", trackers.len(), output_string);
                 }
             },
             "create" => {
@@ -210,12 +220,15 @@ impl Chronos {
 
     // returns the help message
     fn help() -> String {
-        String::from("Available commands:\nhelp \t show this help message\nlist \t lists all current projects\ncreate [project name]\tcreates a new project")
+        String::from("Available commands:\
+        help \t show this help message\
+        list \t lists all current trackers\
+        create [tracker name]\tcreates a new tracker")
     }
 
-    // return a vec of all projects
+    // return a vec of all trackers
     pub async fn list(&self) -> Vec<String> {
-        self.projects.clone()
+        self.trackers.clone()
     }
 
     async fn list_from_pool(pool: &Pool<Sqlite>) -> Vec<String> {
@@ -234,65 +247,65 @@ impl Chronos {
             .collect()
     }
 
-    // function to create new project (simply a table in the sqlite database)
-    pub async fn create(&mut self, project_name: &str) -> Result<String, ChronosError> {
+    // function to create new tracker (simply a table in the sqlite database)
+    pub async fn create(&mut self, tracker_name: &str) -> Result<String, ChronosError> {
         // First make sure that the name isn't already taken
-        if self.projects.contains(&project_name.to_string()) {
-            return Err(ChronosError::new(ErrorTypes::InvalidCommand, format!("Project {} already exists", project_name)));
+        if self.trackers.contains(&tracker_name.to_string()) {
+            return Err(ChronosError::new(ErrorTypes::InvalidCommand, format!("tracker {} already exists", tracker_name)));
         }
 
-        // Create the table with the project's name
-        match query(AssertSqlSafe(format!("CREATE TABLE {} (timestamp INTEGER NOT NULL UNIQUE)", project_name)))
+        // Create the table with the tracker's name
+        match query(AssertSqlSafe(format!("CREATE TABLE {} (timestamp INTEGER NOT NULL UNIQUE)", tracker_name)))
             .execute(&self.pool)
             .await {
             Ok(_) => {
-                self.projects.append(&mut vec![project_name.to_string()]);
-                Ok(format!("Project {} created", project_name))
+                self.trackers.append(&mut vec![tracker_name.to_string()]);
+                Ok(format!("tracker {} created", tracker_name))
             },
-            Err(error) => Err(ChronosError::new(ErrorTypes::DatabaseError, format!("Failed to create project: {}", error))),
+            Err(error) => Err(ChronosError::new(ErrorTypes::DatabaseError, format!("Failed to create tracker: {}", error))),
         }
     }
 
-    pub async fn delete(&self, project_name: &str) -> Result<String, ChronosError> {
-        // make sure the project we're trying to delete exists
-        if !self.projects.contains(&project_name.to_string()) {
-            return Err(ChronosError::new(ErrorTypes::InvalidCommand, format!("Project {} not found", project_name)));
+    pub async fn delete(&self, tracker_name: &str) -> Result<String, ChronosError> {
+        // make sure the tracker we're trying to delete exists
+        if !self.trackers.contains(&tracker_name.to_string()) {
+            return Err(ChronosError::new(ErrorTypes::InvalidCommand, format!("tracker {} not found", tracker_name)));
         }
 
-        // Drop the table (the project)
-        match query(AssertSqlSafe(format!("DROP TABLE {}", project_name)))
+        // Drop the table (the tracker)
+        match query(AssertSqlSafe(format!("DROP TABLE {}", tracker_name)))
         .execute(&self.pool)
         .await {
-            Ok(_) => Ok(format!("Project {} deleted", project_name)),
-            Err(error) => Err(ChronosError::new(ErrorTypes::DatabaseError, format!("Failed to delete project: {}", error))),
+            Ok(_) => Ok(format!("tracker {} deleted", tracker_name)),
+            Err(error) => Err(ChronosError::new(ErrorTypes::DatabaseError, format!("Failed to delete tracker: {}", error))),
         }
     }
 
-    pub async fn start_stop(&self, project: &String) -> Result<String, ChronosError> {
+    pub async fn start_stop(&self, tracker: &String) -> Result<String, ChronosError> {
         // get the time stamp
         let timestamp = match std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH) {
             Ok(duration) => duration.as_secs() as i64,
             Err(error) => return Err(ChronosError::new(ErrorTypes::NoArguments, format!("Can't get system time: {}", error))),
         };
 
-        // add it to the project's table
-        match query(AssertSqlSafe(format!("INSERT INTO {} (timestamp) VALUES (?)", project)))
+        // add it to the tracker's table
+        match query(AssertSqlSafe(format!("INSERT INTO {} (timestamp) VALUES (?)", tracker)))
             .bind(timestamp)
             .execute(&self.pool)
             .await {
-            Ok(_) => Ok(format!("Event added to project: {}", project)),
-            Err(error) => Err(ChronosError::new(ErrorTypes::DatabaseError, format!("Failed to create project: {}", error))),
+            Ok(_) => Ok(format!("Event added to tracker: {}", tracker)),
+            Err(error) => Err(ChronosError::new(ErrorTypes::DatabaseError, format!("Failed to create tracker: {}", error))),
         }
     }
 
     // function to get the time as a formatted string
-    pub async fn log(&self, project: &String) -> Result<String, ChronosError> {
+    pub async fn log(&self, tracker_name: &String) -> Result<String, ChronosError> {
         // get all the events
-        let rows = match query(AssertSqlSafe(format!("SELECT * FROM {} ORDER BY timestamp ASC", project)))
+        let rows = match query(AssertSqlSafe(format!("SELECT * FROM {} ORDER BY timestamp ASC", tracker_name)))
             .fetch_all(&self.pool)
             .await {
             Ok(events) => events,
-            Err(error) => return Err(ChronosError::new(ErrorTypes::DatabaseError, format!("Failed to query project: {}", error))),
+            Err(error) => return Err(ChronosError::new(ErrorTypes::DatabaseError, format!("Failed to query tracker: {}", error))),
         };
 
         // extract the timestamp
@@ -308,7 +321,6 @@ impl Chronos {
 
         // calculate time
         for timestamp in events {
-            println!("event at {}", timestamp);
             if !toggled {
                 last_start = timestamp;
                 toggled = true;
@@ -318,7 +330,7 @@ impl Chronos {
             }
         }
 
-        Ok(format!("You have worked on {} for {}", project, Self::convert_timestamp(time)))
+        Ok(format!("You have worked on {} for {}", tracker_name, Self::convert_timestamp(time)))
     }
 
     // function that formats a timestamp
