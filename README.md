@@ -4,7 +4,14 @@
 
 ## Installation
 
-1. Download the chronos repertory on your computer
+### Option A: Via the installer program.
+
+1. Download the chronos repository on your computer.
+2. Go in the installers directory and run the one for your operating system.
+
+### Option B: Via cargo
+
+1. Download the chronos repository on your computer.
 2. Open the chronos directory.
 3. run `cargo install --path .` (make sure cargo is installed).
 
@@ -33,3 +40,6 @@ In your terminal type `chronos log [tracker name]`
 ### Get chronos version
 
 In your terminal type `chronos --version`
+
+### Open Tui
+In your terminal type `chronos`

@@ -1,4 +1,13 @@
-use std::fmt::Error;
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind};
+use ratatui::{
+    buffer::Buffer,
+    layout::Rect,
+    style::Stylize,
+    symbols::border,
+    text::{Line, Text},
+    widgets::{Block, Paragraph, Widget},
+    DefaultTerminal, Frame,
+};
 /// # Chronos
 ///
 /// Chronos is a struct that tracks time by storing events in a sqlite database.
@@ -42,9 +51,40 @@ impl ChronosError {
 /// ================================================================================================
 /// Struct definition
 /// ================================================================================================
+#[derive(Debug)]
 pub struct Chronos {
     pub pool: Pool<Sqlite>,
     pub trackers: Vec<String>,
+    pub exit: bool,
+}
+
+// TUI
+impl Widget for &Chronos {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        // Create the title of the window
+        let title = Line::from(" CHRONOS ".bold());
+
+        // Add Instructions
+        let instructions = Line::from(vec![" Quit ".into(), "<Q> ".bold()]);
+
+        // Cretae the main screen
+        let block = Block::bordered()
+            .title(title.centered())
+            .title_bottom(instructions.centered())
+            .border_set(border::THICK);
+
+        // Create the version message
+        let message = Text::from(vec![Line::from(vec![
+            "[CHRONOS]-V".into(),
+            VERSION.to_string().red()
+        ])]);
+
+        // Add everything to the paragraph
+        Paragraph::new(message)
+            .centered()
+            .block(block)
+            .render(area, buf);
+    }
 }
 
 impl Chronos {
@@ -61,6 +101,7 @@ impl Chronos {
         Ok(Self {
             pool,
             trackers,
+            exit: false,
         })
     }
 
@@ -389,5 +430,43 @@ impl Chronos {
         }
 
         output
+    }
+
+    // function to run the TUI
+    pub fn run_tui(&mut self, terminal: &mut DefaultTerminal) -> std::io::Result<()> {
+        while !self.exit {
+            terminal.draw(|frame| self.draw(frame))?;
+            self.handle_events()?;
+        }
+        Ok(())
+    }
+
+    // function to draw the TUI
+    fn draw(&self, frame: &mut Frame) {
+        frame.render_widget(self, frame.area());
+    }
+
+    // handle events
+    fn handle_events(&mut self) -> std::io::Result<()> {
+        match event::read()? {
+            Event::Key(key_event) if key_event.kind == KeyEventKind::Press => {
+                self.handle_key_events(key_event)
+            }
+            _ => {}
+        };
+
+        Ok(())
+    }
+
+    // handle keyboard events
+    fn handle_key_events(&mut self, key_event: KeyEvent) {
+        match key_event.code {
+            KeyCode::Char('q') => self.exit(),
+            _ => {}
+        }
+    }
+
+    fn exit(&mut self) {
+        self.exit = true;
     }
 }
