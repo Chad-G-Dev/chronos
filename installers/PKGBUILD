@@ -1,0 +1,17 @@
+# Maintainer: 
+pkgname=chronos
+pkgver=2.0.0
+pkgrel=1
+epoch=
+pkgdesc=""
+arch=('x86_64')
+depends=()
+provides=()
+conflicts=()
+replaces=()
+options=(!lto)
+source=("chronos_2.0.0_x86_64.tar.gz")
+sha512sums=("ea59a35ef58e0e7f6dd8d77ab9d8c5260c977e9cab789f3afb4cc07aae77ff7d0d40728e54d800b94a1085d1689bf3b0a538bc8429fbf294446570136878e7b3")
+package() {
+	cp -r "${srcdir}"/* "${pkgdir}"/
+}

@@ -17,6 +17,9 @@
 
 ## Usage
 
+### Run the tui
+In your terminal type `chronos`
+
 ### List all available commands
 
 In your terminal type `chronos help`

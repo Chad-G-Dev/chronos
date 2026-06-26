@@ -4,10 +4,11 @@ mod chronos;
 // IMPORTS
 // =================================================================================================
 use std::{env, io};
+use sqlx::Row;
 use chronos::Chronos;
 
 #[tokio::main]
-async fn main() -> io::Result<()> {
+async fn main() -> Result<(), ()> {
     // create chronos
     let mut chronos = match Chronos::new().await {
         Ok(chronos) => chronos,
@@ -24,7 +25,7 @@ async fn main() -> io::Result<()> {
             Err(error) => eprintln!("{}", error.message),
         };
     } else {
-        ratatui::run(|terminal| chronos.run_tui(terminal));
+        chronos.tui().await.unwrap_or_else(|_| eprintln!("Failed to run TUI"));
     }
 
     Ok(())
