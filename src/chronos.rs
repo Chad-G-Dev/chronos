@@ -580,6 +580,14 @@ impl Chronos {
         Ok(Self::convert_timestamp(time))
     }
 
+    // function to select a tracker
+    async fn select_tracker(&mut self, tracker_name: &String) {
+        if self.trackers.contains(tracker_name) {
+            self.current_tracker = Some(tracker_name.clone());
+            self.update_event_list().await;
+        }
+    }
+
     // function to run the TUI
     pub async fn tui(&mut self) -> Result<(), ()> {
         color_eyre::install();
@@ -646,7 +654,9 @@ impl Chronos {
         let [first_area] = frame.area().layout(&horizontal);
 
         let error_message = Paragraph::new("An error occurred. Please try again.")
-            .block(Block::default().borders(Borders::ALL).title("ERROR"));
+            .block(Block::default().borders(Borders::ALL).title("ERROR").title_bottom(Line::from(vec![
+                " Back <ESC> ".into(),
+            ])));
         frame.render_widget(error_message, first_area);
     }
 
@@ -717,7 +727,9 @@ impl Chronos {
 
         let graph = BarChart::vertical(bars)
             .bar_width(5)
-            .block(Block::default().borders(Borders::ALL).title("GRAPH"));
+            .block(Block::default().borders(Borders::ALL).title("GRAPH").title_bottom(Line::from(vec![
+                " Select More/Fewer days <Up> <Down>".into(),
+            ])));
         frame.render_widget(graph, outer[0]);
 
 
@@ -745,7 +757,9 @@ impl Chronos {
 
         let event_list = List::new(printable_events)
             .highlight_symbol("> ")
-            .block(Block::default().borders(Borders::ALL).title("EVENT LIST"));
+            .block(Block::default().borders(Borders::ALL).title("EVENT LIST").title_bottom(Line::from(vec![
+                " Scroll Up/Down <Up> <Down> ".into(),
+            ])));
        frame.render_stateful_widget(event_list, inner[1], event_list_state);;
     }
 
@@ -883,9 +897,11 @@ impl Chronos {
                 if selected {
                     if selection > 0 {
                         list_state.select(Some(selection.saturating_sub(1)));
+                        self.select_tracker(&self.trackers[selection].clone()).await;
                     }
                 } else if self.trackers.len() > 0 {
                     list_state.select(Some(0));
+                    self.select_tracker(&self.trackers.clone()[0]).await;
                 }
             },
             KeyCode::Down => {
@@ -897,9 +913,11 @@ impl Chronos {
                 if selected {
                     if selection < self.trackers.len() {
                         list_state.select(Some(selection.saturating_add(1)));
+                        self.select_tracker(&self.trackers.clone()[selection]).await;
                     }
                 } else if self.trackers.len() > 0 {
                     list_state.select(Some(0));
+                    self.select_tracker(&self.trackers.clone()[0]).await;
                 }
             },
             KeyCode::Enter => {
@@ -954,6 +972,8 @@ impl Chronos {
 
         instructions_vec.push(" Quit ".into());
         instructions_vec.push("<ESC> ".bold());
+        instructions_vec.push("Create Tracker ".into());
+        instructions_vec.push("<C> ".into());
 
         // Add Instructions
         let instructions = Line::from(instructions_vec);
@@ -995,7 +1015,11 @@ impl Chronos {
 
         let list = List::new(self.trackers.clone())
             .style(Color::White)
-            .block(Block::default().borders(Borders::ALL).title("TRACKERS"))
+            .block(Block::default().borders(Borders::ALL).title("TRACKERS").title_bottom(Line::from(vec![
+                " Back <ESC> ".into(),
+                "Scroll Up/Down <Up> <Down> ".into(),
+                "Select <ENTER> ".into()
+            ])))
             .highlight_style(Modifier::REVERSED)
             .highlight_symbol("> ");
 
@@ -1014,7 +1038,10 @@ impl Chronos {
             "\n".into(),
             input.clone().bold().underlined(),
         ]))
-            .block(Block::default().borders(Borders::ALL).title("TRACKER CREATION"));
+            .block(Block::default().borders(Borders::ALL).title("TRACKER CREATION").title_bottom(Line::from(vec![
+                " Back <ESC> ".into(),
+                "Create <ENTER> ".into()
+            ])));
 
         frame.render_widget(name.centered().alignment(Alignment::Center), top);
     }
