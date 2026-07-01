@@ -1,32 +1,37 @@
+mod day;
+mod tracker;
+mod tracker_event;
+mod tracker_session;
 mod chronos;
 
-// =================================================================================================
-// IMPORTS
-// =================================================================================================
-use std::{env, io};
-use sqlx::Row;
-use chronos::Chronos;
+use std::env;
 
 #[tokio::main]
-async fn main() -> Result<(), ()> {
-    // create chronos
-    let mut chronos = match Chronos::new().await {
-        Ok(chronos) => chronos,
-        Err(error) => panic!("{}", error.message),
-    };
-
+async fn main() {
     // collect the args
     let args: Vec<String> = env::args().collect();
 
+    // create the chronos object
+    let mut chronos = match chronos::Chronos::new().await {
+        Ok(chronos) => chronos,
+        Err(e) => {
+            println!("Error: {}", e.message);
+            return;
+        }
+    };
+    
+    // if more than "chronos" as args, execute the command else run tui
     if args.len() > 1 {
-        // run and print message
-        let message = match chronos.validate_and_run(args).await {
-            Ok(message) => println!("{}", message),
-            Err(error) => eprintln!("{}", error.message),
+        match &args[1][..] {
+            _ => match chronos.run_command(args).await {
+                Ok(output) => println!("{}", output),
+                Err(e) => println!("Error: {}", e.message),
+            },
         };
     } else {
-        chronos.tui().await.unwrap_or_else(|_| eprintln!("Failed to run TUI"));
+        match chronos.tui().await {
+            Ok(_) => (),
+            Err(e) => println!("Error: {}", e.message),
+        }
     }
-
-    Ok(())
 }

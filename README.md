@@ -38,11 +38,7 @@ In your terminal type `chronos list`
 
 ### Get tracker time
 
-In your terminal type `chronos log [tracker name]`
-
-### Get chronos version
-
-In your terminal type `chronos --version`
+In your terminal type `chronos report [tracker name] [day amount in number or 'all']`
 
 ### Open Tui
 In your terminal type `chronos`
