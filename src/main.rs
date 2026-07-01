@@ -19,17 +19,21 @@ async fn main() {
             return;
         }
     };
-    
+
     // if more than "chronos" as args, execute the command else run tui
     if args.len() > 1 {
-        match &args[1][..] {
+        match args[1].as_str() {
+            "tui" => match chronos.tui().await {
+                Ok(_) => (),
+                Err(e) => println!("Error: {}", e.message),
+            },
             _ => match chronos.run_command(args).await {
                 Ok(output) => println!("{}", output),
                 Err(e) => println!("Error: {}", e.message),
             },
         };
     } else {
-        match chronos.tui().await {
+        match chronos.run_web_app().await {
             Ok(_) => (),
             Err(e) => println!("Error: {}", e.message),
         }

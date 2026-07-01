@@ -41,4 +41,7 @@ In your terminal type `chronos list`
 In your terminal type `chronos report [tracker name] [day amount in number or 'all']`
 
 ### Open Tui
+In your terminal type `chronos tui`
+
+### Open Web UI 
 In your terminal type `chronos`

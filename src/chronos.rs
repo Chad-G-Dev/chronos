@@ -1,3 +1,7 @@
+use axum::http::{StatusCode, Uri};
+use axum::response::{IntoResponse, Response};
+use axum::Router;
+use axum::routing::post;
 use ratatui::{text::Line, widgets::{Axis, Block, BorderType, Borders, Chart, Dataset, GraphType, List, ListState, Paragraph}, symbols::Marker, style::Modifier, prelude::Direction, DefaultTerminal, Frame, layout::{Alignment, Constraint, Layout, Rect}};
 use sqlx::{migrate::MigrateDatabase, query, Pool, Row, Sqlite, SqlitePool};
 use crate::tracker::Tracker;
@@ -6,9 +10,21 @@ use chrono::{
     Local,
 };
 use crossterm::event::{self, Event, KeyCode, KeyEvent};
+use mime_guess::from_path;
+use rust_embed::Embed;
+use tokio::net::TcpListener;
+use tokio_util::sync::CancellationToken;
 
 // Constants
 const DATABASE_URL: &str = "sqlite://sqlite.db";
+const HOST: &str = "127.0.0.1";
+const PORT: &str = "8080";
+
+// Embed to include the frontend in the binary
+#[derive(Embed)]
+#[folder = "frontend/"]
+struct Assets;
+
 
 // Enum for types of errors
 pub enum ChronosErrorTypes {
@@ -56,6 +72,9 @@ pub struct Chronos {
     selected_tracker: Option<Tracker>,
     last_error: Option<ChronosError>,
     exit: bool,
+
+    // For the webapp
+    cancelation_token: tokio_util::sync::CancellationToken,
 }
 
 // impl block for the functions needed for chronos initiation
@@ -96,6 +115,8 @@ impl Chronos {
             selected_tracker: None,
             last_error: None,
             exit: false,
+
+            cancelation_token: tokio_util::sync::CancellationToken::new(),
         })
     }
 
@@ -1066,5 +1087,75 @@ impl Chronos {
             }
             _ => Ok(())
         }
+    }
+}
+
+// impl block for the web app
+impl Chronos {
+    // function to serve the imbeded forntend
+    async fn serve_embed(path: &str) -> Response {
+        match Assets::get(path) {
+            Some(content) => {
+                let mime = from_path(&path).first_or_octet_stream();
+                ([("content-type", mime.as_ref())], content.data).into_response()
+            }
+            None => (StatusCode::NOT_FOUND, "404 Not Found").into_response()
+        }
+    }
+
+    pub async fn run_web_app(&mut self) -> Result<(), ChronosError> {
+        // create the bind address
+        let bind_adress = format!("{}:{}", HOST, PORT);
+
+        // start the tcp listener
+        let listener = match TcpListener::bind(&bind_adress).await {
+            Ok(listener) => listener,
+            Err(e) => return Err(ChronosError::new(ChronosErrorTypes::WebAppError, "Failed to start web server".to_string()))
+        };
+
+        // Attempt to open the web app in a browser
+        if let Err(e) = open::that(format!("http://{}", bind_adress)) {
+            return Err(ChronosError::new(ChronosErrorTypes::WebAppError, format!("Failed to open web app: {}", e)));
+        }
+
+        // create the router
+        let router = self.build_router();
+
+        let token = self.cancelation_token.clone();
+        // start the axum webserver
+        match axum::serve(listener, router)
+            .with_graceful_shutdown(async move {
+                token.cancelled().await;
+            })
+            .await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(ChronosError::new(ChronosErrorTypes::WebAppError, format!("Failed to start web server: {}", e)))
+        }
+    }
+
+    // function to build the router
+    fn build_router(&mut self) -> Router {
+        let token = self.cancelation_token.clone();
+        Router::new()
+            .route("/kill", post(move || async move {
+                token.cancel();
+                (StatusCode::OK, "Killed").into_response()
+            }))
+            .fallback(Self::frontend_handler)
+    }
+
+    // function to handle serving the frontend
+    async fn frontend_handler(uri: Uri) -> Response {
+        // get the path
+        let path = uri.path().trim_start_matches("/");
+
+        // Fallback to index.html for empty paths or paths not in the bundle.
+        let resolved = if path.is_empty() || Assets::get(path).is_none() {
+            "index.html"
+        } else {
+            path
+        };
+
+        Self::serve_embed(resolved).await
     }
 }

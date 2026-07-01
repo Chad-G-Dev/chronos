@@ -294,7 +294,7 @@ dependencies = [
 
 [[package]]
 name = "chronos"
-version = "2.0.0"
+version = "3.1.0"
 dependencies = [
  "axum",
  "chrono",
@@ -310,6 +310,7 @@ dependencies = [
  "serde_json",
  "sqlx",
  "tokio",
+ "tokio-util",
  "tower-http",
 ]
 
