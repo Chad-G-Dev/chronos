@@ -4,11 +4,82 @@
     <meta charset="UTF-8">
     <title>Chronos</title>
 
-
+    <link rel="stylesheet" href="./styles/styles.css">
 </head>
 <body>
-    <h1>Hello Cruel World...</h1>
-    <button id="close-button">Close Application</button>
-    <script src="./scripts/app.js"></script>
+    <!-- LOADER -->
+    <div id="loading_page">
+        <p>[LOADING]</p>
+        <p id="loader">[]</p>
+    </div>
+
+    <!-- MAIN APP CONTAINER -->
+    <div id="app">
+        <!-- NAV BAR -->
+        <nav id="nav_bar">
+            <button id="close_button" class="bordered action_btn_txt">Stop Application</button>
+        </nav>
+
+        <!-- ACTUAL AP PAGES -->
+        <div id="app_pages">
+            <!-- TRACKER SELECTION PAGE -->
+            <div id="tracker_selection_screen">
+            <!-- TRACKER SELECTION MENU -->
+                <div id="trackers_selection_menu" class="bordered">
+                    <span class="top_tag">
+                    Trackers
+                </span>
+                </div>
+            </div>
+            <!-- TRACKER CREATION PAGE -->
+            <div id="tracker_creation_screen">
+                <div class="bordered">
+                    <span class="top_tag">
+                        Tracker Creation
+                    </span>
+
+                    <!-- INPUT FOR TRACKER NAME -->
+                    <label for="tracker_name_input">Tracker Name:</label>
+                    <input type="text" id="tracker_name_input" placeholder="Tracker Name">
+
+                    <!-- BUTTONS -->
+                    <div class="buttons-row">
+                        <button id="create_tracker_button" class="bordered action_btn_txt">Create Tracker</button>
+                        <button id="cancel_creation_button" class="bordered action_btn_txt">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DIV TO RENDER A TRACKER -->
+            <div id="tracker_screen" class="bordered">
+                <span class="top_tag" id="tracker_name"></span>
+                <!-- DAYS GRAPH -->
+                <div id="graph" class="bordered">
+                    <span class="top_tag">Graph</span>
+                    <div id="graph_content">
+
+                    </div>
+                </div>
+                <!-- SESSION LIST -->
+                <div id="session_list_container" class="bordered">
+                    <span class="top_tag">Session List</span>
+                    <div id="session_list">
+
+                    </div>
+                </div>
+                <!-- CLOCK -->
+                <p id="clock" class="bordered">
+                    <span class="top_tag">Clock</span>
+                    <span id="clock_time">00:00:00</span>
+                </p>
+                <!-- Toggle Button -->
+                <button id="toggle_button" class="bordered action_btn_txt">Toggle Clock</button>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="./scripts/border.js"></script>
+    <script src="./scripts/app.js" defer></script>
 </body>
 </html>

@@ -1,7 +1,8 @@
 use axum::http::{StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
-use axum::Router;
-use axum::routing::post;
+use axum::{Json, Router};
+use axum::extract::State;
+use axum::routing::{delete, get, post};
 use ratatui::{text::Line, widgets::{Axis, Block, BorderType, Borders, Chart, Dataset, GraphType, List, ListState, Paragraph}, symbols::Marker, style::Modifier, prelude::Direction, DefaultTerminal, Frame, layout::{Alignment, Constraint, Layout, Rect}};
 use sqlx::{migrate::MigrateDatabase, query, Pool, Row, Sqlite, SqlitePool};
 use crate::tracker::Tracker;
@@ -18,6 +19,7 @@ use tokio_util::sync::CancellationToken;
 // Constants
 const DATABASE_URL: &str = "sqlite://sqlite.db";
 const HOST: &str = "127.0.0.1";
+
 const PORT: &str = "8080";
 
 // Embed to include the frontend in the binary
@@ -27,6 +29,7 @@ struct Assets;
 
 
 // Enum for types of errors
+#[derive(Clone)]
 pub enum ChronosErrorTypes {
     NoArguments,
     DatabaseError,
@@ -39,6 +42,7 @@ pub enum ChronosErrorTypes {
 }
 
 // Enum for tui state
+#[derive(Clone)]
 pub enum ChronosTuiState {
     Selection,
     Creation,
@@ -47,6 +51,7 @@ pub enum ChronosTuiState {
 }
 
 // error object
+#[derive(Clone)]
 pub struct ChronosError {
     pub error_type: ChronosErrorTypes,
     pub message: String,
@@ -62,6 +67,7 @@ impl ChronosError {
 }
 
 // Chronos struct
+#[derive(Clone)]
 pub struct Chronos {
     // For the core functionality
     pool: Pool<Sqlite>,
@@ -256,6 +262,58 @@ impl Chronos {
         };
         Ok(())
     }
+
+    pub async fn delete_tracker(&mut self, name: &str) -> Result<(), ChronosError> {
+        // get the wanted tracker
+        let mut current_tracker: Option<Tracker> = None;
+        for tracker in &self.trackers {
+            if tracker.name == name.to_string() {
+                current_tracker = Some(tracker.clone());
+            }
+        }
+
+        // if a tracker is found, delete it
+        match current_tracker {
+            Some(mut tracker) => {
+                match tracker.delete().await {
+                    Ok(_) => (),
+                    Err(e) => return Err(e),
+                }
+            }
+            None => return Err(ChronosError::new(ChronosErrorTypes::NoCurrentTracker, format!("No tracker named {} found", name))),
+        };
+
+        // update the trackers
+        match self.update_trackers().await {
+            Ok(_) => (),
+            Err(e) => return Err(e),
+        }
+
+        Ok(())
+    }
+
+    pub async fn toggle_tracker(&mut self, name: &str) -> Result<(), ChronosError> {
+        // get the tarcker
+        let mut current_tracker: Option<Tracker> = None;
+        for tracker in &self.trackers {
+            if tracker.name == name {
+                current_tracker = Some(tracker.clone());
+            }
+        }
+
+        // if a tracker is selected, try to toggle it
+        match current_tracker {
+            Some(mut tracker) => {
+                match tracker.toggle().await {
+                    Ok(_) => (),
+                    Err(e) => return Err(e),
+                }
+            }
+            None => return Err(ChronosError::new(ChronosErrorTypes::NoCurrentTracker, format!("No tracker named {} found", name))),
+        };
+
+        Ok(())
+    }
 }
 
 // impl block for commands
@@ -301,51 +359,15 @@ impl Chronos {
                         Ok(format!("Tracker {} created", args[2]))
                     }
                     "delete" => {
-                        // get the wanted tracker
-                        let mut current_tracker: Option<Tracker> = None;
-                        for tracker in &self.trackers {
-                            if tracker.name == args[2] {
-                                current_tracker = Some(tracker.clone());
-                            }
-                        }
-
-                        // if a tracker is found, delete it
-                        match current_tracker {
-                            Some(mut tracker) => {
-                                match tracker.delete().await {
-                                    Ok(_) => (),
-                                    Err(e) => return Err(e),
-                                }
-                            }
-                            None => return Err(ChronosError::new(ChronosErrorTypes::NoCurrentTracker, format!("No tracker named {} found", args[2]))),
-                        };
-
-                        // update the trackers
-                        match self.update_trackers().await {
-                            Ok(_) => (),
+                        match self.delete_tracker(&args[2]).await {
+                            Ok(_) => Ok(format!("Tracker {} deleted", args[2])),
                             Err(e) => return Err(e),
                         }
-
-                        Ok(format!("Tracker {} deleted", args[2]))
                     }
                     "toggle" => {
-                        // get the tarcker
-                        let mut current_tracker: Option<Tracker> = None;
-                        for tracker in &self.trackers {
-                            if tracker.name == args[2] {
-                                current_tracker = Some(tracker.clone());
-                            }
-                        }
-
-                        // if a tracker is selected, try to toggle it
-                        match current_tracker {
-                            Some(mut tracker) => {
-                                match tracker.toggle().await {
-                                    Ok(_) => (),
-                                    Err(e) => return Err(e),
-                                }
-                            }
-                            None => return Err(ChronosError::new(ChronosErrorTypes::NoCurrentTracker, format!("No tracker named {} found", args[2]))),
+                        match self.toggle_tracker(&args[2]).await {
+                            Ok(_) => (),
+                            Err(e) => return Err(e),
                         };
 
                         Ok(format!("Tracker {} toggled", args[2]))
@@ -1141,7 +1163,12 @@ impl Chronos {
                 token.cancel();
                 (StatusCode::OK, "Killed").into_response()
             }))
+            .route("/trackers", get(Self::handle_get_trackers))
+            .route("/tracker", post(Self::handle_create_tracker))
+            .route("/tracker", delete(Self::handle_delete_tracker))
+            .route("/toggle", post(Self::handle_post_toggle))
             .fallback(Self::frontend_handler)
+            .with_state(self.clone())
     }
 
     // function to handle serving the frontend
@@ -1157,5 +1184,66 @@ impl Chronos {
         };
 
         Self::serve_embed(resolved).await
+    }
+
+    // route to handle getting trackers
+    async fn handle_get_trackers( State(mut chronos): State<Chronos>) -> Response {
+
+        let trackers = match chronos.update_trackers().await {
+            Ok(_) => chronos.trackers.clone(),
+            Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.message).into_response(),
+        };
+        (StatusCode::OK, Json(trackers)).into_response()
+    }
+
+    // route to handle creating a tracker
+    async fn handle_create_tracker( State(mut chronos): State<Chronos>, Json(body): Json<serde_json::Value>) -> Response {
+
+        match Tracker::new(body.get("name").unwrap().as_str().unwrap(), chrono::Utc::now().timestamp(), chronos.pool.clone()).await {
+            Ok(tracker) => match chronos.update_trackers().await {
+                Ok(_) => match chronos.update_trackers().await {
+                    Ok(()) => (StatusCode::OK, Json(tracker)).into_response(),
+                    Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.message).into_response(),
+                },
+                Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.message).into_response(),
+            },
+            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.message).into_response(),
+        }
+    }
+
+    // route to handle deleting a tracker
+    async fn handle_delete_tracker( State(mut chronos): State<Chronos>, Json(body): Json<serde_json::Value>) -> Response {
+        let name = match body.get("name") {
+            Some(name) => name,
+            None => return (StatusCode::BAD_REQUEST, "Missing name").into_response(),
+        };
+
+        match chronos.delete_tracker(name.as_str().unwrap()).await {
+            Ok(_) => (StatusCode::OK, "Tracker deleted").into_response(),
+            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.message).into_response(),
+        }
+    }
+
+    // route to handle toggling a tracker
+    async fn handle_post_toggle( State(mut chronos): State<Chronos>, Json(body): Json<serde_json::Value>) -> Response {
+        match chronos.update_trackers().await {
+            Ok(_) => (),
+            Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.message).into_response(),
+        };
+
+        let name = match body.get("name") {
+            Some(name) => name,
+            None => return (StatusCode::BAD_REQUEST, "Missing name").into_response(),
+        };
+
+        match chronos.toggle_tracker(name.as_str().unwrap()).await {
+            Ok(_) => (),
+            Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.message).into_response(),
+        }
+
+        match chronos.update_trackers().await {
+            Ok(_) => (StatusCode::OK, "Tracker toggled").into_response(),
+            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.message).into_response(),
+        }
     }
 }

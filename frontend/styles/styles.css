@@ -1,0 +1,443 @@
+*,
+*::before,
+*::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+}
+
+body {
+    min-height: 100vh;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+}
+
+img,
+picture,
+video,
+canvas,
+svg {
+    display: block;
+    max-width: 100%;
+}
+
+input,
+button,
+textarea,
+select {
+    font: inherit;
+    border: none;
+    outline: none;
+    background: none;
+}
+
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    overflow-wrap: break-word;
+}
+
+a {
+    text-decoration: none;
+    color: inherit;
+}
+
+ul,
+ol {
+    list-style: none;
+}
+
+pre,
+code {
+    line-height: 1.31;
+    white-space: pre;
+    text-align: center;
+}
+
+button {
+    cursor: pointer;
+    white-space: nowrap;
+}
+@font-face {
+    font-family: 'JetBrains Mono Variable';
+    src: url('../assets/fonts/JetBrainsMono.ttf') format('truetype-variation');
+    font-weight: 100 900;
+    font-display: swap;
+}
+
+:root {
+    --dark: #141414;
+    --light: #ebebeb;
+    --purple: #c65afe;
+    --red: #ff0056;
+    --orange: #fc2f00;
+    --yellow: #d7fc00;
+    --green: #65ff0b;
+
+    --corner-size: 12px;
+    --gap: 5px;
+    --line-color: var(--light);
+    --corner-color: var(--light);
+    --corner-width: 2px;
+    --line-width: 1px;
+}
+
+/* Apply globally to your pages */
+* {
+    font-family: 'JetBrains Mono Variable', monospace;
+    background-color: rgba(0, 0, 0, 0);
+    text-shadow: 0 0 8px var(--light), 0 0 32px var(--light), 0 0 128px var(--light);
+    gap: 16px;
+}
+
+label {
+    white-space: nowrap;
+}
+
+body {
+    background-color: var(--dark);
+    color: var(--light);
+    padding-top: 88px;
+}
+
+nav {
+    display: none;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+
+    width: 100vw;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 100;
+    padding: 16px;
+
+    border-bottom: 1px solid var(--light);
+}
+
+input {
+    color: var(--light);
+    border-bottom: 1px solid var(--light);
+}
+
+.spacing {
+    flex-grow: 1;
+}
+
+/* Styles for the borders */
+.bordered {
+    position: relative;
+    padding: calc(var(--corner-size) + var(--gap));
+    overflow: visible;
+
+    background-image:
+            linear-gradient(90deg, transparent calc(var(--corner-size) + var(--gap)), var(--line-color) calc(var(--corner-size) + var(--gap)), var(--line-color) calc(100% - var(--corner-size) - var(--gap)), transparent calc(100% - var(--corner-size) - var(--gap))),
+            linear-gradient(90deg, transparent calc(var(--corner-size) + var(--gap)), var(--line-color) calc(var(--corner-size) + var(--gap)), var(--line-color) calc(100% - var(--corner-size) - var(--gap)), transparent calc(100% - var(--corner-size) - var(--gap))),
+            linear-gradient(180deg, transparent calc(var(--corner-size) + var(--gap)), var(--line-color) calc(var(--corner-size) + var(--gap)), var(--line-color) calc(100% - var(--corner-size) - var(--gap)), transparent calc(100% - var(--corner-size) - var(--gap))),
+            linear-gradient(180deg, transparent calc(var(--corner-size) + var(--gap)), var(--line-color) calc(var(--corner-size) + var(--gap)), var(--line-color) calc(100% - var(--corner-size) - var(--gap)), transparent calc(100% - var(--corner-size) - var(--gap)));
+
+    background-size:
+            100% var(--line-width),
+            100% var(--line-width),
+            var(--line-width) 100%,
+            var(--line-width) 100%;
+
+    background-position:
+            top left,
+            bottom left,
+            top left,
+            top right;
+
+    background-repeat: no-repeat;
+
+    .corner {
+        position: absolute;
+        width: var(--corner-size);
+        height: var(--corner-size);
+        background-color: rgba(0, 0, 0, 0);
+        display: block;
+        z-index: 10;
+    }
+
+    .corner.tl {
+        top: 0;
+        left: 0;
+        border-top: var(--corner-width) solid var(--corner-color);
+        border-left: var(--corner-width) solid var(--corner-color);
+    }
+
+    .corner.tr {
+        top: 0;
+        right: 0;
+        border-top: var(--corner-width) solid var(--corner-color);
+        border-right: var(--corner-width) solid var(--corner-color);
+    }
+
+    .corner.bl {
+        bottom: 0;
+        left: 0;
+        border-bottom: var(--corner-width) solid var(--corner-color);
+        border-left: var(--corner-width) solid var(--corner-color);
+    }
+
+    .corner.br {
+        bottom: 0;
+        right: 0;
+        border-bottom: var(--corner-width) solid var(--corner-color);
+        border-right: var(--corner-width) solid var(--corner-color);
+    }
+
+    .top_tag {
+        position: absolute;
+        top: -1px;
+        left: calc(var(--corner-size) + var(--gap) + 6px);
+        background: var(--light);
+        color: var(--dark);
+        font-size: 8px;
+        font-weight: 700;
+        letter-spacing: 2px;
+        padding: 1px 7px;
+        text-transform: uppercase;
+    }
+}
+
+/* styles for the action buttons */
+/* The full-width button initialization sequence block */
+.action-btn,
+.action_btn_txt {
+    background-color: rgba(0, 0, 0, 0);
+    color: var(--light);
+    border: none;
+    padding: 0.75rem 1.5rem;
+    /* Larger touch-target vertical footprint padding area */
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    text-transform: uppercase;
+
+
+    /* Forces the button to stretch across the full width of the form container */
+    display: block;
+    margin-top: 0.5rem;
+    /* Extra buffer space separating it from the last port field */
+}
+
+.action_btn_txt::before {
+    content: "[ ";
+}
+
+.action_btn_txt::after {
+    content: " ]";
+}
+
+/* Animated hover transition state selector rules */
+.action-btn:hover,
+.action_btn_txt:hover {
+    background-color: var(--light);
+    color: var(--dark);
+    box-shadow: 0 0 8px var(--light), 0 0 32px var(--light), 0 0 128px var(--red);
+    animation: flicker .12s steps(1) 2;
+    text-shadow: none;
+}
+
+
+.action-btn:active,
+.action_btn_txt:active {
+    background-color: var(--light);
+    color: var(--dark);
+    box-shadow: 0 0 8px var(--red), 0 0 32px var(--red), 0 0 128px var(--red);
+}
+
+.tracker_option {
+    display: flex; // flex
+flex-direction: row;
+    text-align: center;
+    align-items: center;
+    position: relative;
+
+
+    width: 100%;
+}
+
+.tracker_option p {
+    flex-grow: 1;
+}
+
+.buttons-row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
+}
+
+#trackers_selection_menu {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    position: relative;
+
+    width: calc(100vw - 32px);
+    margin: 16px;
+}
+
+#loading_page {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    width: 100vw;
+
+    #loader {
+        animation: spin 2s ease-in-out infinite;
+    }
+}
+
+#app {
+    padding: 16px;
+
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
+}
+
+#tracker_screen {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes flicker {
+    0% {
+        opacity: 1;
+    }
+
+    25% {
+        opacity: 0.4;
+    }
+
+    50% {
+        opacity: 1;
+    }
+
+    75% {
+        opacity: 0.6;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+#graph {
+    width: 100%;
+    height: 100%;
+    overflow: scroll;
+    overflow-y: hidden;
+
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
+}
+
+#clock {
+    width: 100%;
+}
+
+#graph_content {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    justify-content: flex-start;
+
+    .bar {
+        flex-grow: 1;
+        height: 30vh;
+
+        display: flex;
+        flex-direction: column-reverse;
+        flex-wrap: nowrap;
+        align-items: center;
+        justify-content: flex-start;
+
+        .bar_marker-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column-reverse;
+            flex-wrap: nowrap;
+            align-items: center;
+            justify-content: flex-start;
+
+            width: 10px;
+            height: 100%;
+
+            .bar_marker {
+
+                background: var(--light);
+                width: 100%;
+            }
+        }
+    }
+}
+
+#tracker_screen {
+    width: calc(100vw - 32px);
+    height: calc(100vh - 120px);
+}
+
+#session_list_container {
+    width: 100%;
+    height: 30%;
+}
+
+#session_list {
+    overflow: scroll;
+    height: 100%;
+    width: 100%;
+
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+/*
+@media screen and (max-width: 768px) {
+    * {
+        font-size: 8px !important;
+    }
+}*/

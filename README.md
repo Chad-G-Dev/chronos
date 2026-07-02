@@ -45,3 +45,4 @@ In your terminal type `chronos tui`
 
 ### Open Web UI 
 In your terminal type `chronos`
+if the page does not open by itself, open http://localhost:8080 in your browser.

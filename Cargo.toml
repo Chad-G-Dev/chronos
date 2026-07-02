@@ -1,6 +1,6 @@
 [package]
 name = "chronos"
-version = "3.1.0"
+version = "3.2.0"
 edition = "2024"
 
 [dependencies]
@@ -38,6 +38,10 @@ icons = ["icons/*.png", "icons/*.ico", "icons/*.icns"]
 
 binaries = [
     { path = "chronos", main = true}
+]
+
+resources = [
+    { src = "frontend", target = "frontend" }
 ]
 
 before_packaging_command = "cargo build --release"

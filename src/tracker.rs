@@ -104,6 +104,7 @@ impl Tracker {
         (sessions, (toggled, last_start))
     }
 
+    // function to get the time per day
     fn get_time_per_day(sessions: &Vec<TrackerSession>) -> Vec<Day> {
         // create output vec
         let mut time_per_day: Vec<Day> = vec![];
@@ -138,6 +139,7 @@ impl Tracker {
         }
     }
 
+    // function to update the tracker
     async fn update(&mut self) -> Result<(), ChronosError> {
         match Self::query_db(&self.name, &self.pool).await {
             Ok(events) => {
@@ -158,15 +160,19 @@ impl Tracker {
             Err(e) => return Err(ChronosError::new(ChronosErrorTypes::DatabaseError, format!("Failed to create table: {}", e))),
         };
 
+
         // add it to the tracker table
         match query(AssertSqlSafe(format!("INSERT INTO trackers (name, created_at) VALUES ('{}', '{}')", table_name, Self::get_timestamp())))
             .execute(pool)
             .await {
-            Ok(_) => Ok(()),
+            Ok(_) => (),
             Err(error) => return Err(ChronosError::new(ChronosErrorTypes::DatabaseError, format!("Failed to create tracker: {}", error))),
-        }
+        };
+
+        Ok(())
     }
 
+    // delete a tracker
     pub async fn delete(&mut self) -> Result<(), ChronosError> {
         match query("DELETE FROM trackers WHERE name = ?")
             .bind(&self.name)
@@ -187,6 +193,7 @@ impl Tracker {
 
     }
 
+    // toggle the tracker
     pub async fn toggle (&mut self) -> Result<(), ChronosError> {
         match query(AssertSqlSafe(format!("INSERT INTO {} (timestamp, event_type) VALUES (?, ?)", self.name)))
             .bind(Self::get_timestamp())
@@ -205,6 +212,7 @@ impl Tracker {
         Ok(())
     }
 
+    // report the tracker
     pub fn report(&self, days: usize) -> String {
         let mut time: i64 = 0;
 
@@ -221,6 +229,7 @@ impl Tracker {
         Self::format_epoch(time)
     }
 
+    // format the epoch time
     pub fn format_epoch(mut time: i64) -> String {
         // get individual units of time
         let seconds = time % 60;
